@@ -514,3 +514,16 @@ winfirtaps_jl    = digitalfilter(Bandstop(0.1, 0.2; fs=1),FIRWindow(hamming(129)
 # firwin(129, [0.1, 0.2], nyq=.5, scale=False)
 winfirtaps_scipy = readdlm(joinpath(dirname(@__FILE__), "data", "digitalfilter_hamming_129_bandstop_scaled_fc0.1_0.2_fs1.0.txt"),'\t')
 @test winfirtaps_jl ≈ vec(winfirtaps_scipy)
+
+let fs = 44100.0, k = 3.3
+    rs = Vector[[2fs], [2fs, 2fs], [2fs, -2fs], [-1000.0-2000.0im, -1000.0+2000.0im, -300.0]]
+    rs = [[Float64[]]; rs; -rs]
+    w = linspace(0, 2π)
+    for z in rs, p in rs
+        h = ZeroPoleGain(z, p, k)
+        hd = DSP.Filters.bilinear(h, fs)
+        @test typeof(h.p) == typeof(hd.p)
+        @test typeof(h.z) == typeof(hd.z)
+        @test freqz(hd, w) ≈ freqs(h, 2fs*tan.(w/2))
+    end
+end

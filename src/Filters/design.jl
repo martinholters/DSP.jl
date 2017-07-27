@@ -350,23 +350,39 @@ analogfilter(ftype::FilterType, proto::FilterCoefficients) =
 # Bilinear transform
 bilinear(f::FilterCoefficients, fs::Real) = bilinear(convert(ZeroPoleGain, f), fs)
 function bilinear(f::ZeroPoleGain{Z,P,K}, fs::Real) where {Z,P,K}
+    n = max(length(f.p), length(f.z))
+
     ztype = typeof(0 + zero(Z)/fs)
-    z = fill(convert(ztype, -1), max(length(f.p), length(f.z)))
+    z = fill(convert(ztype, -1), n)
 
     ptype = typeof(0 + zero(P)/fs)
-    p = Array{typeof(zero(P)/fs)}(length(f.p))
+    p = fill(convert(ptype, -1), n)
 
+    valid = trues(n)
     num = one(one(fs) - one(Z))
     for i = 1:length(f.z)
-        z[i] = (2 + f.z[i] / fs)/(2 - f.z[i] / fs)
-        num *= (2 * fs - f.z[i])
+        if 2 - f.z[i] / fs ≈ 0
+            valid[i] = false
+            num *= -4fs
+        else
+            z[i] = (2 + f.z[i] / fs)/(2 - f.z[i] / fs)
+            num *= (2 * fs - f.z[i])
+        end
     end
+    z = z[valid]
 
+    fill!(valid, true)
     den = one(one(fs) - one(P))
     for i = 1:length(f.p)
-        p[i] = (2 + f.p[i] / fs)/(2 - f.p[i]/fs)
-        den *= (2 * fs - f.p[i])
+        if 2 - f.p[i] / fs ≈ 0
+            valid[i] = false
+            den *= -4fs
+        else
+            p[i] = (2 + f.p[i] / fs)/(2 - f.p[i]/fs)
+            den *= (2 * fs - f.p[i])
+        end
     end
+    p = p[valid]
 
     ZeroPoleGain(z, p, f.k * real(num)/real(den))
 end
